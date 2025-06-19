@@ -9,20 +9,25 @@
 <body>
     <header>
         <h1>Moj raspored</h1>
-        </header>
+        <!-- Navigacija za promjenu tjedna -->
+        <nav class="week-navigation">
+            <button id="prev-week-btn" class="nav-button">&laquo; Prethodni tjedan</button>
+            <h2 id="current-week-display">Učitavanje...</h2>
+            <button id="next-week-btn" class="nav-button">Sljedeći tjedan &raquo;</button>
+        </nav>
+    </header>
 
     <main>
-        <div class="calendar-grid">
-            <div class="time-header">Vrijeme</div>
-            <div class="day-header">PON</div>
-            <div class="day-header">UTO</div>
-            <div class="day-header">SRI</div>
-            <div class="day-header">ČET</div>
-            <div class="day-header">PET</div>
-            
+        <!-- Kontejner za kalendar -->
+        <div class="calendar-container">
+            <div id="calendar-grid" class="calendar-grid">
+                <!-- Sadržaj kalendara će se dinamički generirati putem JS-a -->
+                <div class="loading">Učitavanje rasporeda...</div>
             </div>
+        </div>
     </main>
     
+    <!-- Učitavanje ažurirane JavaScript datoteke -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
