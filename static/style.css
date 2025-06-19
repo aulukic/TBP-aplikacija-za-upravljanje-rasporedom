@@ -285,12 +285,8 @@ header h1 {
 .delete-button {
     background-color: #e74c3c;
     color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 10px 15px;
     font-size: 0.9em;
-    transition: background-color 0.3s ease;
 }
 .delete-button:hover {
     background-color: #c0392b;
@@ -299,17 +295,32 @@ header h1 {
 .cancel-button {
     background-color: #bdc3c7;
     color: #fff;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
+    padding: 10px 15px;
     font-size: 0.9em;
-    transition: background-color 0.3s ease;
 }
 
 .cancel-button:hover {
     background-color: #95a5a6;
 }
+
+/* ====================================================== */
+/* NOVO: Stil za gumb za uređivanje                       */
+/* ====================================================== */
+.edit-button {
+    background-color: #f39c12; /* Narančasta boja za uređivanje */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.9em;
+    transition: background-color 0.3s ease;
+    margin-right: auto; /* Gura gumb na lijevu stranu footera */
+}
+.edit-button:hover {
+    background-color: #e67e22;
+}
+
 
 /* Form Styling */
 #add-event-form .form-group {

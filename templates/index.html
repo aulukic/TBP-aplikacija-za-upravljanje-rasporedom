@@ -25,7 +25,6 @@
     <main>
         <div class="calendar-container">
             <div id="calendar-grid" class="calendar-grid">
-                <!-- Sadržaj kalendara se dinamički generira putem JS-a -->
                 <div class="loading">Učitavanje rasporeda...</div>
             </div>
         </div>
@@ -36,20 +35,22 @@
         <div class="modal-content">
             <button class="modal-close">&times;</button>
             <h3 id="modal-title"></h3>
-            <div id="modal-body">
-                <!-- Detalji događaja se dinamički ubacuju ovdje -->
-            </div>
+            <div id="modal-body"></div>
             <div class="modal-footer">
+                <!-- ====================================================== -->
+                <!-- NOVO: Gumb za pokretanje uređivanja                  -->
+                <!-- ====================================================== -->
+                <button id="edit-event-btn" class="edit-button">Uredi</button>
                 <button id="delete-event-btn" class="delete-button">Obriši događaj</button>
             </div>
         </div>
     </div>
 
-    <!-- Modal s formom za dodavanje novog događaja -->
+    <!-- Modal s formom za dodavanje/uređivanje novog događaja -->
     <div id="add-event-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <button class="modal-close">&times;</button>
-            <h3>Dodaj novi događaj</h3>
+            <h3 id="form-title">Dodaj novi događaj</h3>
             <form id="add-event-form">
                 <div class="form-group">
                     <label for="grupa">Grupa / Kolegij</label>
@@ -88,7 +89,7 @@
                     <input type="text" id="oblik_nastave" name="oblik_nastave" placeholder="Npr. Predavanje, Vježbe..." required>
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="nav-button">Spremi događaj</button>
+                    <button type="submit" id="form-submit-btn" class="nav-button">Spremi događaj</button>
                     <button type="button" class="cancel-button">Odustani</button>
                 </div>
             </form>

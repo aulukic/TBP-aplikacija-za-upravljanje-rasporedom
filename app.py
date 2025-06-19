@@ -5,9 +5,7 @@ import datetime
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 
-# Učitavanje varijabli iz .env datoteke (npr. za lozinku baze)
 load_dotenv()
-
 app = Flask(__name__)
 
 # --- Pomoćne funkcije ---
@@ -26,15 +24,11 @@ def get_db_connection():
         return None
 
 def execute_query(query, params=None, fetch=None):
-    """
-    Pojednostavljuje izvršavanje upita i rukovanje konekcijom.
-    Smanjuje ponavljanje koda u API rutama.
-    """
+    """Pojednostavljuje izvršavanje upita i rukovanje konekcijom."""
     conn = get_db_connection()
     if not conn:
         return None, "Database connection failed"
     try:
-        # Korištenje 'with' osigurava da se resursi automatski oslobode
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
             cur.execute(query, params)
             if fetch == "one":
@@ -42,11 +36,11 @@ def execute_query(query, params=None, fetch=None):
             elif fetch == "all":
                 result = cur.fetchall()
             else:
-                result = None # Za INSERT, UPDATE, DELETE
-            conn.commit() # Potvrdi transakciju
+                result = None
+            conn.commit()
             return result, None
     except Exception as e:
-        conn.rollback() # Poništi transakciju u slučaju greške
+        conn.rollback()
         print(f"Greška u upitu: {e}")
         return None, str(e)
     finally:
@@ -61,12 +55,11 @@ def index():
 
 # --- API Rute ---
 
-# GET rute za dohvaćanje podataka
+# GET rute
 @app.route('/api/events')
 def get_events():
     """Dohvaća sve događaje za određeni tjedan i godinu."""
     try:
-        # Dohvati parametre iz URL-a ili koristi trenutni tjedan kao zadani
         year = int(request.args.get('year', datetime.date.today().isocalendar().year))
         week = int(request.args.get('week', datetime.date.today().isocalendar().week))
     except (ValueError, TypeError):
@@ -77,8 +70,9 @@ def get_events():
         SELECT 
             d.id_dogadaj, d.dan, d.vrijeme_od, d.vrijeme_do, k.naziv as kolegij_naziv,
             dv.naziv as dvorana_naziv, n.ime_prezime as nastavnik_ime,
-            g.naziv as grupa_naziv, d.oblik_nastave, g.id_grupa, k.id_kolegij,
-            dv.id_dvorana, n.id_nastavnik
+            g.naziv as grupa_naziv, d.oblik_nastave, g.id_grupa as id_grupa_fk,
+            k.id_kolegij, dv.id_dvorana as id_dvorana_fk, n.id_nastavnik as id_nastavnik_fk,
+            d.br_tjedna
         FROM dogadaj d
         JOIN grupa g ON d.id_grupa_fk = g.id_grupa
         JOIN kolegij k ON g.id_kolegij_fk = k.id_kolegij
@@ -87,14 +81,12 @@ def get_events():
         WHERE k.ak_godina = %s AND d.br_tjedna = %s
         ORDER BY d.vrijeme_od;
     """
-    # Fiksirano na 2024 za testiranje s podacima koje smo unijeli
     academic_year = 2024
     events, error = execute_query(query, (academic_year, week), fetch="all")
     
     if error:
         return jsonify({"error": error}), 500
         
-    # Formatiranje vremena u čitljiv string za frontend
     for event in events:
         event['vrijeme_od'] = event['vrijeme_od'].strftime('%H:%M') if event.get('vrijeme_od') else None
         event['vrijeme_do'] = event['vrijeme_do'].strftime('%H:%M') if event.get('vrijeme_do') else None
@@ -103,7 +95,8 @@ def get_events():
 
 @app.route('/api/form-data')
 def get_form_data():
-    """Dohvaća sve potrebne podatke za popunjavanje formi (npr. padajući izbornici)."""
+    """Dohvaća sve potrebne podatke za popunjavanje formi."""
+    # Ostatak funkcije ostaje isti...
     queries = {
         "grupe": "SELECT id_grupa, naziv FROM grupa ORDER BY naziv",
         "nastavnici": "SELECT id_nastavnik, ime_prezime FROM nastavnik ORDER BY ime_prezime",
@@ -117,12 +110,13 @@ def get_form_data():
         form_data[key] = data
     return jsonify(form_data)
 
-# POST ruta za dodavanje novog događaja
+
+# POST ruta za dodavanje
 @app.route('/api/events', methods=['POST'])
 def add_event():
     """Dodaje novi događaj u bazu podataka."""
+    # Ostatak funkcije ostaje isti...
     data = request.get_json()
-    # Jednostavna validacija da su sva polja prisutna
     required_fields = ['id_grupa_fk', 'id_nastavnik_fk', 'id_dvorana_fk', 'dan', 'vrijeme_od', 'vrijeme_do', 'br_tjedna', 'oblik_nastave']
     if not all(field in data and data[field] for field in required_fields):
         return jsonify({"error": "Sva polja su obavezna."}), 400
@@ -138,15 +132,50 @@ def add_event():
     
     return jsonify({"message": "Događaj uspješno dodan!", "new_event": new_event}), 201
 
-# DELETE ruta za brisanje događaja
+
+# ======================================================
+# NOVO: PUT ruta za ažuriranje postojećeg događaja
+# ======================================================
+@app.route('/api/events/<int:event_id>', methods=['PUT'])
+def update_event(event_id):
+    """Ažurira postojeći događaj u bazi."""
+    data = request.get_json()
+    required_fields = ['id_grupa_fk', 'id_nastavnik_fk', 'id_dvorana_fk', 'dan', 'vrijeme_od', 'vrijeme_do', 'br_tjedna', 'oblik_nastave']
+    if not all(field in data and data[field] for field in required_fields):
+        return jsonify({"error": "Sva polja su obavezna."}), 400
+    
+    # Dodaj ID događaja u rječnik s parametrima za upit
+    data['id_dogadaj'] = event_id
+    
+    query = """
+        UPDATE dogadaj
+        SET id_grupa_fk = %(id_grupa_fk)s,
+            id_nastavnik_fk = %(id_nastavnik_fk)s,
+            id_dvorana_fk = %(id_dvorana_fk)s,
+            dan = %(dan)s,
+            vrijeme_od = %(vrijeme_od)s,
+            vrijeme_do = %(vrijeme_do)s,
+            br_tjedna = %(br_tjedna)s,
+            oblik_nastave = %(oblik_nastave)s
+        WHERE id_dogadaj = %(id_dogadaj)s;
+    """
+    _, error = execute_query(query, data)
+    
+    if error:
+        return jsonify({"error": error}), 500
+        
+    return jsonify({"message": "Događaj uspješno ažuriran!"})
+
+
+# DELETE ruta za brisanje
 @app.route('/api/events/<int:event_id>', methods=['DELETE'])
 def delete_event(event_id):
     """Briše događaj iz baze na temelju njegovog ID-a."""
+    # Funkcija ostaje ista
     query = "DELETE FROM dogadaj WHERE id_dogadaj = %s;"
     _, error = execute_query(query, (event_id,))
     if error:
         return jsonify({"error": error}), 500
-
     return jsonify({"message": "Događaj uspješno obrisan!"})
 
 # --- Pokretanje aplikacije ---
