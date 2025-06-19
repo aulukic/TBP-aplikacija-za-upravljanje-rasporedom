@@ -1,213 +1,223 @@
+
 BEGIN;
 
 CREATE TABLE kolegij (
     id_kolegij SERIAL PRIMARY KEY,
-    naziv VARCHAR(100),
+    naziv VARCHAR(100) NOT NULL,
     ects SMALLINT,
-    semestar SMALLINT
+    semestar SMALLINT,
+    ak_godina INTEGER -- Dodano za filtriranje po akademskoj godini
 );
 
 CREATE TABLE nastavnik (
     id_nastavnik SERIAL PRIMARY KEY,
-    ime_prezime VARCHAR(100),
+    ime_prezime VARCHAR(100) NOT NULL,
     titula VARCHAR(50),
-    email VARCHAR(100)
+    email VARCHAR(100) UNIQUE -- Email bi trebao biti jedinstven
 );
 
 CREATE TABLE dvorana (
     id_dvorana SERIAL PRIMARY KEY,
-    naziv VARCHAR(100),
+    naziv VARCHAR(100) NOT NULL,
     kapacitet INTEGER
 );
 
 CREATE TABLE studijskiProgram (
     id_program SERIAL PRIMARY KEY,
-    naziv VARCHAR(100)
+    naziv VARCHAR(100) NOT NULL
 );
 
 CREATE TABLE student (
     jmbag VARCHAR(10) PRIMARY KEY,
-    ime_prezime VARCHAR(100),
+    ime_prezime VARCHAR(100) NOT NULL,
     godina SMALLINT,
     id_program_fk INTEGER REFERENCES studijskiProgram(id_program)
 );
 
+CREATE TABLE nastavnik_kolegij (
+    id_nastavnik_fk INTEGER REFERENCES nastavnik(id_nastavnik) ON DELETE CASCADE,
+    id_kolegij_fk INTEGER REFERENCES kolegij(id_kolegij) ON DELETE CASCADE,
+    PRIMARY KEY (id_nastavnik_fk, id_kolegij_fk)
+);
+
+
 CREATE TABLE grupa (
     id_grupa SERIAL PRIMARY KEY,
-    id_kolegij_fk INTEGER REFERENCES kolegij(id_kolegij),
-    semestar VARCHAR(6) CHECK( semestar = 'zimski' 
- OR semestar = 'ljetni' ),
-    naziv VARCHAR(50)
+    id_kolegij_fk INTEGER REFERENCES kolegij(id_kolegij) ON DELETE CASCADE, -- Veza s kolegijem je ovdje
+    semestar VARCHAR(6) CHECK( semestar = 'zimski' OR semestar = 'ljetni' ),
+    naziv VARCHAR(50) NOT NULL
 );
 
 CREATE TABLE dogadaj (
     id_dogadaj SERIAL PRIMARY KEY,
-    ak_godina INTEGER,
-    id_kolegij_fk INTEGER REFERENCES kolegij(id_kolegij),
-    id_grupa_fk INTEGER REFERENCES grupa(id_grupa),
-    tjedni VARCHAR(50),
-    dan VARCHAR(10),
+    id_grupa_fk INTEGER REFERENCES grupa(id_grupa) ON DELETE CASCADE,
+    id_nastavnik_fk INTEGER REFERENCES nastavnik(id_nastavnik),
+    id_dvorana_fk INTEGER REFERENCES dvorana(id_dvorana),
+    dan VARCHAR(10) CHECK (dan IN ('Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota', 'Nedjelja')),
     vrijeme_od TIME,
     vrijeme_do TIME,
-    semestar VARCHAR(6) CHECK( semestar = 'zimski' 
-	OR semestar = 'ljetni' ),
-    id_nastavnik_fk INTEGER REFERENCES nastavnik(id_nastavnik),
     br_tjedna SMALLINT,
-    id_dvorana_fk INTEGER REFERENCES dvorana(id_dvorana),
     oblik_nastave VARCHAR(50),
-    vrijedece_vrijeme TSRANGE DEFAULT tsrange(NOW()::TIMESTAMP, 'infinity'::TIMESTAMP)[^1^][1]
+    vrijedece_vrijeme TSRANGE DEFAULT tsrange(NOW()::TIMESTAMP, 'infinity'::TIMESTAMP)
 );
 
 CREATE TABLE prisustvo (
-    id_dogadaj_fk INTEGER REFERENCES dogadaj(id_dogadaj),
-    jmbag VARCHAR(10) REFERENCES student(jmbag),
-    datum DATE
+    id_dogadaj_fk INTEGER REFERENCES dogadaj(id_dogadaj) ON DELETE CASCADE,
+    jmbag VARCHAR(10) REFERENCES student(jmbag) ON DELETE CASCADE,
+    datum DATE,
+    PRIMARY KEY (id_dogadaj_fk, jmbag, datum)
 );
 
 CREATE TABLE nastavnik_log (
-    email TEXT,
-    vrijeme TIMESTAMP DEFAULT now()
+    stari_email TEXT,
+    vrijeme_promjene TIMESTAMP DEFAULT now()
 );
 
 COMMIT;
 
-%funkcija za tavlicu dogadaj%
-CREATE OR REPLACE FUNCTION promjena_dogadaja()
-RETURNS TRIGGER
-AS $$
+-- FUNKCIJE I OKIDAČI (TRIGGERS)
+
+-- Okidač za temporalnost (praćenje povijesti)
+CREATE OR REPLACE FUNCTION promjena_dogadaja_trigger_fcn()
+RETURNS TRIGGER AS $$
 BEGIN
     UPDATE dogadaj
-    SET vrijedece_vrijeme = tsrange(
-        LOWER(vrijedece_vrijeme)::TIMESTAMP,
-        NOW()::TIMESTAMP
-    )
-    WHERE OLD.id = id
-    AND UPPER(vrijedece_vrijeme) = 'infinity'::TIMESTAMP;
-    RETURN NULL;
+    SET vrijedece_vrijeme = tsrange(LOWER(OLD.vrijedece_vrijeme), NOW())
+    WHERE id_dogadaj = OLD.id_dogadaj;
+    RETURN OLD; 
 END;
-$$
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
-%okidač za funkciju%
-CREATE TRIGGER temp_dogadaj
-BEFORE DELETE
-ON dogadaj
+-- Okidač se aktivira PRIJE brisanja ili ažuriranja
+CREATE TRIGGER temp_dogadaj_trigger
+BEFORE UPDATE OR DELETE ON dogadaj
 FOR EACH ROW
-EXECUTE PROCEDURE promjena_dogadaja();
+EXECUTE PROCEDURE promjena_dogadaja_trigger_fcn();
 
-%funkcija provjere emaila unosa novog nastavnika%
-CREATE OR REPLACE FUNCTION provjera_emaila()
-RETURNS TRIGGER
-AS $$
+
+-- Okidač za provjeru formata emaila
+CREATE OR REPLACE FUNCTION provjera_emaila_trigger_fcn()
+RETURNS TRIGGER AS $$
 BEGIN
-    IF NEW.email NOT LIKE '%@%' THEN
-        RAISE EXCEPTION 'Neispravan email: %', NEW.email;
+    IF NEW.email IS NOT NULL AND NEW.email NOT LIKE '%_@__%.__%' THEN
+        RAISE EXCEPTION 'Neispravan format emaila: %', NEW.email;
     END IF;
     RETURN NEW;
 END;
-$$
-LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql;
 
-%okidač za funkciju provjere nastavnika%
-CREATE TRIGGER provjera_emaila_nastavnik
-BEFORE INSERT OR UPDATE
-ON nastavnik
+CREATE TRIGGER provjera_emaila_nastavnik_trigger
+BEFORE INSERT OR UPDATE ON nastavnik
 FOR EACH ROW
-EXECUTE PROCEDURE provjera_emaila();
+EXECUTE PROCEDURE provjera_emaila_trigger_fcn();
 
-%RULE za provjeru ispravnog emaila%
 
-CREATE RULE nastavnik_log AS ON UPDATE TO nastavnik
-WHERE NEW.email <> OLD.email
-DO INSERT INTO nastavnik_log VALUES (OLD.email);
+-- PRAVILA (RULES)
 
-UPDATE nastavnik SET email = 'novi.email@primjer.hr' WHERE email = 'stari.email@primjer.hr';[^1^][1]
+-- Pravilo za logiranje promjene emaila nastavnika
+CREATE OR REPLACE RULE nastavnik_log_rule AS
+ON UPDATE TO nastavnik
+WHERE NEW.email IS DISTINCT FROM OLD.email
+DO INSERT INTO nastavnik_log (stari_email) VALUES (OLD.email);
 
-SELECT * FROM nastavnik_log;
 
-%upit koji vraca nastavnika koji drzi najvise kolegija u zimskom semestru u tekućoj ak. g.%
-WITH kolegiji_po_nastavniku AS (
-    SELECT n.ime_prezime, COUNT(*) AS broj_kolegija
-    FROM nastavnik n
-    JOIN kolegij k ON n.id_nastavnik = k.id_nastavnik
-    WHERE k.semestar = 'zimski' AND EXTRACT(YEAR FROM NOW()) = ak_godina
-    GROUP BY n.ime_prezime
-)
-SELECT * FROM kolegiji_po_nastavniku
-ORDER BY broj_kolegija DESC
-LIMIT 1;
+-- POGLEDI (VIEWS)
 
-%upit koji vraća najmanje korištene dvorane unutar intervala od 3 mjeseca%
-WITH korištenje_dvorana AS (
-    SELECT d.naziv, COUNT(*) AS broj_koristenja
-    FROM dvorana d
-    JOIN dogadaj dg ON d.id_dvorana = dg.id_dvorana
-    WHERE dg.vrijeme_do >= NOW() - INTERVAL '3 months'
-    GROUP BY d.naziv
-)
-SELECT * FROM korištenje_dvorana
-ORDER BY broj_koristenja ASC;
-
-%pogled rasporeda pojedinog studenta za tjedan%
-CREATE VIEW raspored_studenta AS
+-- AŽURIRANI POGLED: dohvaća kolegij preko tablice 'grupa'
+CREATE OR REPLACE VIEW raspored_studenta AS
 SELECT 
+    s.jmbag,
     s.ime_prezime,
     dg.dan,
     dg.vrijeme_od,
     dg.vrijeme_do,
     k.naziv AS kolegij,
-    d.naziv AS dvorana
+    d.naziv AS dvorana,
+    n.ime_prezime AS nastavnik
 FROM 
     student s
     JOIN prisustvo p ON s.jmbag = p.jmbag
     JOIN dogadaj dg ON p.id_dogadaj_fk = dg.id_dogadaj
-    JOIN kolegij k ON dg.id_kolegij_fk = k.id_kolegij
-    JOIN dvorana d ON dg.id_dvorana_fk = d.id_dvorana;
-	
-	%pogled koji vraća sve kolegije koje drži neki nastavnik%
-	CREATE VIEW kolegiji_po_nastavniku AS
+    JOIN grupa g ON dg.id_grupa_fk = g.id_grupa -- Ažurirana veza
+    JOIN kolegij k ON g.id_kolegij_fk = k.id_kolegij -- Ažurirana veza
+    JOIN dvorana d ON dg.id_dvorana_fk = d.id_dvorana
+    JOIN nastavnik n ON dg.id_nastavnik_fk = n.id_nastavnik;
+
+-- AŽURIRANI POGLED: koristi novu M:N tablicu 'nastavnik_kolegij'
+CREATE OR REPLACE VIEW kolegiji_po_nastavniku AS
 SELECT
-    n.ime_prezime,
+    n.ime_prezime AS nastavnik,
     k.naziv AS kolegij,
     k.semestar
 FROM
     nastavnik n
-    JOIN kolegij k ON n.id_nastavnik = k.id_nastavnik;
-	
-%pogled za ukupan broj predavanja na kolegiju%
-CREATE VIEW ukupan_broj_predavanja AS
-SELECT 
-    id_kolegij_fk,
-    COUNT(*) AS broj_predavanja
-FROM 
-    dogadaj
-GROUP BY id_kolegij_fk;
+    JOIN nastavnik_kolegij nk ON n.id_nastavnik = nk.id_nastavnik_fk
+    JOIN kolegij k ON nk.id_kolegij_fk = k.id_kolegij;
 
-%upit bizostanak po studentu%
+-- AŽURIRANI POGLED: dohvaća kolegij preko tablice 'grupa'
+CREATE OR REPLACE VIEW ukupan_broj_predavanja AS
+SELECT 
+    g.id_kolegij_fk,
+    COUNT(d.id_dogadaj) AS broj_predavanja
+FROM 
+    dogadaj d
+    JOIN grupa g ON d.id_grupa_fk = g.id_grupa
+GROUP BY g.id_kolegij_fk;
+
+
+-- PRIMJERI KORISNIH UPITA (AŽURIRANI)
+
+-- Upit koji vraća nastavnika koji drži najviše kolegija u zimskom semestru
+-- Koristi novu tablicu 'nastavnik_kolegij'
+SELECT n.ime_prezime, COUNT(k.id_kolegij) AS broj_kolegija
+FROM nastavnik n
+JOIN nastavnik_kolegij nk ON n.id_nastavnik = nk.id_nastavnik_fk
+JOIN kolegij k ON nk.id_kolegij_fk = k.id_kolegij
+WHERE k.semestar = 1 -- Pretpostavka da je zimski semestar 1
+GROUP BY n.ime_prezime
+ORDER BY broj_kolegija DESC
+LIMIT 1;
+
+-- Upit koji vraća najmanje korištene dvorane unutar određenog intervala
+-- Ovaj upit je bio ispravan
+SELECT d.naziv, COUNT(dg.id_dogadaj) AS broj_koristenja
+FROM dvorana d
+LEFT JOIN dogadaj dg ON d.id_dvorana = dg.id_dvorana_fk
+    AND dg.vrijeme_od >= (NOW() - INTERVAL '3 months')
+GROUP BY d.naziv
+ORDER BY broj_koristenja ASC;
+
+-- AŽURIRAN upit za izostanke po studentu
+-- Koristi ažurirane veze i poglede
 WITH izostanci_po_studentu AS (
     SELECT 
         s.jmbag, 
         s.ime_prezime, 
-        k.id_kolegij_fk,
-        COUNT(*) AS broj_izostanaka,
-        ubp.broj_predavanja
+        g.id_kolegij_fk,
+        -- Brojimo prisustva za svaki kolegij
+        COUNT(p.datum) AS broj_prisustva
     FROM 
         student s
         JOIN prisustvo p ON s.jmbag = p.jmbag
         JOIN dogadaj d ON p.id_dogadaj_fk = d.id_dogadaj
-        JOIN kolegij k ON d.id_kolegij_fk = k.id_kolegij
-        JOIN ukupan_broj_predavanja ubp ON k.id_kolegij_fk = ubp.id_kolegij_fk
-    GROUP BY s.jmbag, s.ime_prezime, k.id_kolegij_fk, ubp.broj_predavanja
+        JOIN grupa g ON d.id_grupa_fk = g.id_grupa
+    GROUP BY s.jmbag, s.ime_prezime, g.id_kolegij_fk
 ),
 postotak_izostanaka AS (
     SELECT 
-        *,
-        (1 - CAST(broj_izostanaka AS NUMERIC) / broj_predavanja) * 100 AS postotak_prisutnosti
-    FROM izostanci_po_studentu
+        ips.jmbag,
+        ips.ime_prezime,
+        ips.id_kolegij_fk,
+        -- Postotak se računa kao (broj prisustva / ukupan broj predavanja) * 100
+        (CAST(ips.broj_prisustva AS NUMERIC) / ubp.broj_predavanja) * 100 AS postotak_prisutnosti
+    FROM izostanci_po_studentu ips
+    JOIN ukupan_broj_predavanja ubp ON ips.id_kolegij_fk = ubp.id_kolegij_fk
+    WHERE ubp.broj_predavanja > 0 -- Izbjegavamo dijeljenje s nulom
 )
 SELECT 
     jmbag, 
     ime_prezime,
+    -- Prosjek postotaka prisutnosti po svim kolegijima za studenta
     AVG(postotak_prisutnosti) AS prosjecni_postotak_prisutnosti
 FROM 
     postotak_izostanaka
@@ -215,4 +225,5 @@ GROUP BY
     jmbag, 
     ime_prezime
 ORDER BY 
-    AVG(postotak_prisutnosti) ASC;
+    prosjecni_postotak_prisutnosti ASC;
+
