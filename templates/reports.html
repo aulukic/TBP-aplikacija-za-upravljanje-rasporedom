@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Izvještaji - Moj Raspored</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="main-container">
+        <aside class="sidebar">
+            <h2>Navigacija</h2>
+            <nav>
+                <ul>
+                    <li><a href="/">Raspored</a></li>
+                    <li><a href="/reports" class="active">Izvještaji</a></li>
+                </ul>
+            </nav>
+        </aside>
+
+        <div class="content-wrapper">
+            <header>
+                <h1>Izvještaji i Administracija</h1>
+            </header>
+
+            <main class="reports-main">
+                <!-- Sekcija za izvještaje temeljene na POGLEDIMA (VIEWS) -->
+                <section class="report-section">
+                    <h2>Izvještaji iz Baze Podataka</h2>
+                    
+                    <div class="report-card">
+                        <h3>Raspored Studenta (View: `raspored_studenta`)</h3>
+                        <div class="form-group">
+                            <label for="student-jmbag-input">Unesite JMBAG studenta:</label>
+                            <input type="text" id="student-jmbag-input" placeholder="Npr. 0246012345">
+                            <button id="fetch-student-schedule-btn" class="nav-button">Prikaži Raspored</button>
+                        </div>
+                        <div id="student-schedule-result" class="table-container"></div>
+                    </div>
+                    
+                    <div class="report-card">
+                        <h3>Kolegiji po Nastavnicima (View: `kolegiji_po_nastavniku`)</h3>
+                        <button id="fetch-teacher-courses-btn" class="nav-button">Prikaži podatke</button>
+                        <div id="teacher-courses-result" class="table-container"></div>
+                    </div>
+                </section>
+
+                <!-- Sekcija za prikaz rada OKIDAČA i PRAVILA -->
+                <section class="report-section">
+                    <h2>Administrativni Pregled</h2>
+                    
+                    <div class="report-card">
+                        <h3>Log Promjena Emailova Nastavnika (RULE)</h3>
+                        <button id="fetch-email-logs-btn" class="nav-button">Osvježi Log</button>
+                        <div id="email-logs-result" class="table-container"></div>
+                    </div>
+                    
+                    <div class="report-card">
+                        <h3>Povijest Izbrisanih/Ažuriranih Događaja (TRIGGER)</h3>
+                        <button id="fetch-event-history-btn" class="nav-button">Osvježi Povijest</button>
+                        <div id="event-history-result" class="table-container"></div>
+                    </div>
+                </section>
+            </main>
+        </div>
+    </div>
+    <!-- JavaScript za ovu stranicu -->
+    <script src="{{ url_for('static', filename='reports.js') }}"></script>
+</body>
+</html>

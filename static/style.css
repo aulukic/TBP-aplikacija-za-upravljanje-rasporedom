@@ -4,7 +4,56 @@ body {
     background-color: #f4f7f9;
     color: #333;
     margin: 0;
+}
+
+/* Glavni layout s bočnom trakom */
+.main-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 240px;
+    background-color: #2c3e50;
+    color: #ecf0f1;
     padding: 20px;
+    flex-shrink: 0;
+}
+
+.sidebar h2 {
+    margin-top: 0;
+    border-bottom: 1px solid #34495e;
+    padding-bottom: 10px;
+}
+
+.sidebar nav ul {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar nav li a {
+    display: block;
+    padding: 12px 15px;
+    color: #ecf0f1;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background-color 0.3s ease;
+}
+
+.sidebar nav li a:hover {
+    background-color: #34495e;
+}
+
+.sidebar nav li a.active {
+    background-color: #3498db;
+    font-weight: bold;
+}
+
+.content-wrapper {
+    flex-grow: 1;
+    padding: 20px 40px; /* Dodan veći padding radi prozračnosti */
+    overflow-y: auto;
 }
 
 /* Header and Navigation */
@@ -90,7 +139,7 @@ header h1 {
 
 /* Calendar Styles */
 .calendar-container {
-    max-width: 1200px;
+    max-width: 1400px; /* Povećan radi bolje preglednosti */
     margin: 0 auto;
     background-color: #fff;
     border-radius: 8px;
@@ -282,32 +331,7 @@ header h1 {
     justify-content: flex-end;
 }
 
-.delete-button {
-    background-color: #e74c3c;
-    color: white;
-    padding: 10px 15px;
-    font-size: 0.9em;
-}
-.delete-button:hover {
-    background-color: #c0392b;
-}
-
-.cancel-button {
-    background-color: #bdc3c7;
-    color: #fff;
-    padding: 10px 15px;
-    font-size: 0.9em;
-}
-
-.cancel-button:hover {
-    background-color: #95a5a6;
-}
-
-/* ====================================================== */
-/* NOVO: Stil za gumb za uređivanje                       */
-/* ====================================================== */
-.edit-button {
-    background-color: #f39c12; /* Narančasta boja za uređivanje */
+.delete-button, .edit-button, .cancel-button {
     color: white;
     border: none;
     padding: 10px 15px;
@@ -315,12 +339,29 @@ header h1 {
     cursor: pointer;
     font-size: 0.9em;
     transition: background-color 0.3s ease;
-    margin-right: auto; /* Gura gumb na lijevu stranu footera */
+}
+
+.delete-button {
+    background-color: #e74c3c;
+}
+.delete-button:hover {
+    background-color: #c0392b;
+}
+
+.cancel-button {
+    background-color: #bdc3c7;
+}
+.cancel-button:hover {
+    background-color: #95a5a6;
+}
+
+.edit-button {
+    background-color: #f39c12;
+    margin-right: auto;
 }
 .edit-button:hover {
     background-color: #e67e22;
 }
-
 
 /* Form Styling */
 #add-event-form .form-group {
@@ -353,4 +394,88 @@ header h1 {
 }
 #add-event-form .form-row .form-group {
     flex: 1;
+}
+
+/* Stilovi za stranicu s izvještajima */
+.reports-main {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 25px;
+}
+
+.report-section {
+    background-color: #fff;
+    padding: 25px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.report-section h2 {
+    margin-top: 0;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.report-card {
+    margin-bottom: 30px;
+}
+.report-card:last-child {
+    margin-bottom: 0;
+}
+
+.report-card h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #34495e;
+}
+
+.report-card .form-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+.report-card .form-group label {
+    font-weight: 500;
+}
+.report-card .form-group input {
+    flex-grow: 1;
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+}
+
+.table-container {
+    margin-top: 15px;
+    max-height: 400px;
+    overflow-y: auto;
+    border: 1px solid #dfe6e9;
+    border-radius: 4px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #dfe6e9;
+}
+
+thead th {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #fdfdfd;
+}
+
+tbody tr:hover {
+    background-color: #ecf5ff;
 }

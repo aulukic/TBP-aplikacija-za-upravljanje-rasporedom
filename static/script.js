@@ -29,11 +29,11 @@ document.addEventListener('DOMContentLoaded', function() {
         week: null,
         events: [],
         formData: {},
-        selectedEventId: null, // ID događaja otvorenog u details modalu
-        editModeEventId: null  // ID događaja koji se trenutno uređuje
+        selectedEventId: null,
+        editModeEventId: null
     };
     
-    // === Pomoćne Funkcije za Datume (nepromijenjene) ===
+    // === Pomoćne Funkcije za Datume ===
     function getWeekInfo(d) {
         const date = new Date(d.valueOf());
         date.setHours(0, 0, 0, 0);
@@ -51,9 +51,9 @@ document.addEventListener('DOMContentLoaded', function() {
         return isoWeekStart;
     }
 
-    // === Logika Dohvaćanja i Prikazivanja Podataka (uglavnom nepromijenjeno) ===
+    // === Logika Dohvaćanja i Prikazivanja Podataka ===
     function initializeCalendar() {
-        fetchAndRenderEvents(2024, 42); // Početni prikaz
+        fetchAndRenderEvents(2024, 42);
         fetchFormData();
         addEventListeners();
     }
@@ -100,9 +100,10 @@ document.addEventListener('DOMContentLoaded', function() {
             eventDiv.dataset.eventId = event.id_dogadaj;
             eventDiv.innerHTML = `<strong>${event.vrijeme_od} - ${event.vrijeme_do}</strong><span class="event-title">${event.kolegij_naziv} (${event.oblik_nastave})</span><small class="event-details">${event.dvorana_naziv} &bull; ${event.nastavnik_ime}</small>`;
             const startMinutes = parseInt(event.vrijeme_od.split(':')[1]);
-            const endMinutes = (parseInt(event.vrijeme_do.split(':')[0]) * 60 + parseInt(event.vrijeme_do.split(':')[1])) - (startHour * 60 + startMinutes);
-            eventDiv.style.top = `${(startMinutes / 60) * 60}px`;
-            eventDiv.style.height = `${(endMinutes / 60) * 60 - 2}px`;
+            const durationMinutes = (parseInt(event.vrijeme_do.split(':')[0]) * 60 + parseInt(event.vrijeme_do.split(':')[1])) - (startHour * 60 + startMinutes);
+            const ROW_HEIGHT = 60;
+            eventDiv.style.top = `${(startMinutes / 60) * ROW_HEIGHT}px`;
+            eventDiv.style.height = `${(durationMinutes / 60) * ROW_HEIGHT - 2}px`;
             targetCell.appendChild(eventDiv);
         });
     }
@@ -123,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
             modalElement.style.display = 'none';
             if (modalElement === addEventModal) {
                 addEventForm.reset();
-                state.editModeEventId = null; // Resetiraj mod uređivanja
+                state.editModeEventId = null;
             }
         }, 300);
     }
@@ -151,17 +152,14 @@ document.addEventListener('DOMContentLoaded', function() {
         days.forEach(dan => danSelect.add(new Option(dan, dan)));
     }
 
-    // NOVO: Otvara formu za dodavanje ILI uređivanje
     function openAddEditModal(eventId = null) {
         addEventForm.reset();
         state.editModeEventId = eventId;
-
-        if (eventId) { // Mod za uređivanje
+        if (eventId) {
             const event = state.events.find(e => e.id_dogadaj === eventId);
             if (!event) return;
             formTitle.textContent = 'Uredi događaj';
             formSubmitBtn.textContent = 'Spremi promjene';
-            // Popuni formu s postojećim podacima
             addEventForm.querySelector('#grupa').value = event.id_grupa_fk;
             addEventForm.querySelector('#nastavnik').value = event.id_nastavnik_fk;
             addEventForm.querySelector('#dvorana').value = event.id_dvorana_fk;
@@ -170,7 +168,7 @@ document.addEventListener('DOMContentLoaded', function() {
             addEventForm.querySelector('#vrijeme_od').value = event.vrijeme_od;
             addEventForm.querySelector('#vrijeme_do').value = event.vrijeme_do;
             addEventForm.querySelector('#oblik_nastave').value = event.oblik_nastave;
-        } else { // Mod za dodavanje
+        } else {
             formTitle.textContent = 'Dodaj novi događaj';
             formSubmitBtn.textContent = 'Spremi događaj';
             addEventForm.querySelector('#br_tjedna').value = state.week;
@@ -190,29 +188,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // NOVO: Jedna funkcija za slanje forme (i dodavanje i uređivanje)
     async function handleAddEditFormSubmit(event) {
         event.preventDefault();
         const formData = new FormData(addEventForm);
         const data = Object.fromEntries(formData.entries());
-
         const isEditMode = state.editModeEventId !== null;
         const url = isEditMode ? `/api/events/${state.editModeEventId}` : '/api/events';
         const method = isEditMode ? 'PUT' : 'POST';
-
         try {
-            const response = await fetch(url, {
-                method: method,
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
+            const response = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
             const result = await response.json();
             if (!response.ok) throw new Error(result.error || 'Greška na serveru.');
-            
             closeModal(addEventModal);
-            fetchAndRenderEvents(state.year, state.week); // Uvijek osvježi prikaz
+            fetchAndRenderEvents(state.year, state.week);
             alert(result.message);
-
         } catch (error) {
             alert(`Greška: ${error.message}`);
         }
@@ -226,7 +215,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const result = await response.json();
                 if (!response.ok) throw new Error(result.error || 'Greška na serveru.');
                 closeModal(detailsModal);
-                fetchAndRenderEvents(state.year, state.week); // Osvježi prikaz
+                fetchAndRenderEvents(state.year, state.week);
                 alert(result.message);
             } catch (error) {
                 alert(`Greška: ${error.message}`);
@@ -237,40 +226,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // Centralizirano dodavanje Event Listenera
     function addEventListeners() {
         prevWeekBtn.addEventListener('click', () => {
-            const currentDate = getDateFromWeek(state.year, state.week);
-            currentDate.setDate(currentDate.getDate() - 7);
-            const [newYear, newWeek] = getWeekInfo(currentDate);
-            fetchAndRenderEvents(newYear, newWeek);
+            const d = getDateFromWeek(state.year, state.week); d.setDate(d.getDate() - 7);
+            const [y, w] = getWeekInfo(d); fetchAndRenderEvents(y, w);
         });
-
         nextWeekBtn.addEventListener('click', () => {
-            const currentDate = getDateFromWeek(state.year, state.week);
-            currentDate.setDate(currentDate.getDate() + 7);
-            const [newYear, newWeek] = getWeekInfo(currentDate);
-            fetchAndRenderEvents(newYear, newWeek);
+            const d = getDateFromWeek(state.year, state.week); d.setDate(d.getDate() + 7);
+            const [y, w] = getWeekInfo(d); fetchAndRenderEvents(y, w);
         });
-        
         grid.addEventListener('click', e => {
             const eventDiv = e.target.closest('.event');
-            if (eventDiv) showDetailsModal(parseInt(eventDiv.dataset.eventId, 10));
+            if (eventDiv) showDetailsModal(parseInt(eventDiv.dataset.eventId));
         });
-
         document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => e.target === m && closeModal(m)));
         document.querySelectorAll('.modal-close').forEach(b => b.addEventListener('click', e => closeModal(b.closest('.modal-overlay'))));
-
-        addEventBtn.addEventListener('click', () => openAddEditModal()); // Otvara formu za dodavanje
-        addEventForm.addEventListener('submit', handleAddEditFormSubmit); // Listener za slanje forme
+        addEventBtn.addEventListener('click', () => openAddEditModal());
+        addEventForm.addEventListener('submit', handleAddEditFormSubmit);
         cancelFormBtn.addEventListener('click', () => closeModal(addEventModal));
-        
-        editEventBtn.addEventListener('click', () => { // NOVO: Pokreće mod za uređivanje
+        editEventBtn.addEventListener('click', () => {
             closeModal(detailsModal);
             openAddEditModal(state.selectedEventId);
         });
-        
         deleteEventBtn.addEventListener('click', handleDeleteEvent);
         searchInput.addEventListener('input', handleSearch);
     }
     
-    // Pokreni sve!
     initializeCalendar();
 });
