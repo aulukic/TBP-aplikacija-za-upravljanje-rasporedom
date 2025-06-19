@@ -1,258 +1,326 @@
-/* General Body Styles */
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    background-color: #f4f7f9;
-    color: #333;
-    margin: 0;
-    padding: 20px;
-}
+document.addEventListener('DOMContentLoaded', function() {
+    // === DOM Elementi ===
+    const grid = document.getElementById('calendar-grid');
+    const prevWeekBtn = document.getElementById('prev-week-btn');
+    const nextWeekBtn = document.getElementById('next-week-btn');
+    const currentWeekDisplay = document.getElementById('current-week-display');
+    const searchInput = document.getElementById('search-input');
+    
+    // Elementi za modal s detaljima
+    const detailsModal = document.getElementById('event-details-modal');
+    const detailsModalTitle = detailsModal.querySelector('#modal-title');
+    const detailsModalBody = detailsModal.querySelector('#modal-body');
+    const deleteEventBtn = detailsModal.querySelector('#delete-event-btn');
+    
+    // Elementi za modal s formom za dodavanje
+    const addEventModal = document.getElementById('add-event-modal');
+    const addEventBtn = document.getElementById('add-event-btn');
+    const addEventForm = document.getElementById('add-event-form');
+    const cancelFormBtn = addEventModal.querySelector('.cancel-button');
 
-/* Header and Navigation */
-header {
-    text-align: center;
-    margin-bottom: 20px;
-}
+    const days = ['Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak'];
+    
+    // === Stanje Aplikacije ===
+    let state = {
+        year: null,
+        week: null,
+        events: [],       // Svi događaji za trenutni tjedan
+        formData: {},     // Podaci za popunjavanje formi (grupe, nastavnici...)
+        selectedEventId: null // ID događaja otvorenog u modalu
+    };
+    
+    // === Pomoćne Funkcije za Datume ===
+    function getWeekInfo(d) {
+        const date = new Date(d.valueOf());
+        date.setHours(0, 0, 0, 0);
+        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+        const week1 = new Date(date.getFullYear(), 0, 4);
+        const weekNumber = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+        return [date.getFullYear(), weekNumber];
+    }
+    
+    function getDateFromWeek(y, w) {
+        const simple = new Date(y, 0, 1 + (w - 1) * 7);
+        const dow = simple.getDay();
+        const isoWeekStart = simple;
+        if (dow <= 4) isoWeekStart.setDate(simple.getDate() - simple.getDay() + 1);
+        else isoWeekStart.setDate(simple.getDate() + 8 - simple.getDay());
+        return isoWeekStart;
+    }
 
-header h1 {
-    color: #2c3e50;
-    margin-bottom: 10px;
-}
+    // === Logika Dohvaćanja i Prikazivanja Podataka ===
+    
+    // Glavna inicijalizacijska funkcija
+    function initializeCalendar() {
+        const initialYear = 2024;
+        const initialWeek = 42;
+        fetchAndRenderEvents(initialYear, initialWeek);
+        fetchFormData();
+        addEventListeners();
+    }
+    
+    // Dohvaća podatke za popunjavanje padajućih izbornika
+    function fetchFormData() {
+        fetch('/api/form-data')
+            .then(res => res.json())
+            .then(data => {
+                state.formData = data;
+                populateAddFormSelects();
+            })
+            .catch(error => console.error("Greška pri dohvaćanju podataka za formu:", error));
+    }
+    
+    // Dohvaća događaje za određeni tjedan i pokreće iscrtavanje
+    function fetchAndRenderEvents(year, week) {
+        grid.innerHTML = '<div class="loading">Učitavanje rasporeda...</div>';
+        currentWeekDisplay.textContent = `Učitavanje...`;
 
-.week-navigation {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 20px;
-    margin-bottom: 20px; /* Dodan razmak ispod navigacije */
-}
+        fetch(`/api/events?year=${year}&week=${week}`)
+            .then(response => response.ok ? response.json() : Promise.reject('Mrežni odgovor nije bio u redu.'))
+            .then(data => {
+                if (data.error) return Promise.reject(data.error);
+                
+                state.year = data.year;
+                state.week = data.week;
+                state.events = data.events;
+                
+                renderCalendarGrid(data.events);
+                updateWeekDisplay();
+            })
+            .catch(error => {
+                console.error('Greška pri dohvaćanju događaja:', error);
+                grid.innerHTML = `<div class="error">Greška: ${error}. Molimo pokušajte ponovno.</div>`;
+                currentWeekDisplay.textContent = 'Greška';
+            });
+    }
 
-.week-navigation h2 {
-    margin: 0;
-    font-size: 1.2em;
-    color: #34495e;
-    min-width: 180px;
-    text-align: center;
-}
+    // Iscrtava cijeli kalendar na temelju dohvaćenih događaja
+    function renderCalendarGrid(events) {
+        grid.innerHTML = '';
+        
+        grid.appendChild(Object.assign(document.createElement('div'), { className: 'time-header' }));
+        days.forEach(day => grid.appendChild(Object.assign(document.createElement('div'), { className: 'day-header', textContent: day })));
 
-.nav-button {
-    background-color: #3498db;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
-    cursor: pointer;
-    font-size: 1em;
-    transition: background-color 0.3s ease;
-}
+        for (let hour = 8; hour < 21; hour++) {
+            grid.appendChild(Object.assign(document.createElement('div'), { className: 'time-label', textContent: `${hour}:00` }));
+            days.forEach(day => {
+                const cell = document.createElement('div');
+                cell.className = 'calendar-cell';
+                cell.dataset.day = day;
+                cell.dataset.hour = hour;
+                grid.appendChild(cell);
+            });
+        }
 
-.nav-button:hover {
-    background-color: #2980b9;
-}
+        events.forEach(event => {
+            const startHour = parseInt(event.vrijeme_od.split(':')[0]);
+            const targetCell = grid.querySelector(`[data-day="${event.dan}"][data-hour="${startHour}"]`);
 
-/* ====================================================== */
-/* NOVO: Stilovi za traku za pretraživanje                */
-/* ====================================================== */
-.search-container {
-    max-width: 500px;
-    margin: 0 auto;
-}
+            if (targetCell) {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event';
+                eventDiv.dataset.eventId = event.id_dogadaj;
+                
+                eventDiv.innerHTML = `
+                    <strong>${event.vrijeme_od} - ${event.vrijeme_do}</strong>
+                    <span class="event-title">${event.kolegij_naziv} (${event.oblik_nastave})</span>
+                    <small class="event-details">${event.dvorana_naziv} &bull; ${event.nastavnik_ime}</small>
+                `;
 
-#search-input {
-    width: 100%;
-    padding: 12px 15px;
-    font-size: 1em;
-    border: 2px solid #dfe6e9;
-    border-radius: 8px;
-    box-sizing: border-box;
-    transition: border-color 0.3s ease, box-shadow 0.3s ease;
-}
+                const startMinutes = parseInt(event.vrijeme_od.split(':')[1]);
+                const endHour = parseInt(event.vrijeme_do.split(':')[0]);
+                const endMinutes = parseInt(event.vrijeme_do.split(':')[1]);
+                
+                const durationMinutes = (endHour * 60 + endMinutes) - (startHour * 60 + startMinutes);
+                const ROW_HEIGHT = 60;
+                
+                const height = (durationMinutes / 60) * ROW_HEIGHT; 
+                const topOffset = (startMinutes / 60) * ROW_HEIGHT;
 
-#search-input:focus {
-    border-color: #3498db;
-    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
-    outline: none;
-}
+                eventDiv.style.top = `${topOffset}px`;
+                eventDiv.style.height = `${height - 2}px`;
+                
+                targetCell.appendChild(eventDiv);
+            }
+        });
+    }
 
+    // Ažurira prikaz tjedna i godine u zaglavlju
+    function updateWeekDisplay() {
+        currentWeekDisplay.textContent = `Tjedan ${state.week}, ${state.year}.`;
+    }
 
-/* Calendar Styles */
-.calendar-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    background-color: #fff;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    overflow: hidden;
-}
+    // === Logika za Modale i Forme ===
+    function openModal(modalElement) {
+        modalElement.style.display = 'flex';
+        setTimeout(() => modalElement.classList.add('visible'), 10);
+    }
 
-.calendar-grid {
-    display: grid;
-    grid-template-columns: 80px repeat(5, 1fr); 
-    border-top: 1px solid #e0e0e0;
-}
+    function closeModal(modalElement) {
+        modalElement.classList.remove('visible');
+        setTimeout(() => {
+            modalElement.style.display = 'none';
+            if(modalElement === addEventModal) addEventForm.reset(); // Resetiraj formu kod zatvaranja
+        }, 300);
+    }
 
-.time-header, .day-header {
-    background-color: #f8f9fa;
-    padding: 12px;
-    font-weight: bold;
-    text-align: center;
-    border-bottom: 1px solid #e0e0e0;
-    position: sticky;
-    top: 0;
-    z-index: 10;
-}
+    function showDetailsModal(eventId) {
+        const event = state.events.find(e => e.id_dogadaj === eventId);
+        if (!event) return;
+        state.selectedEventId = eventId;
+        
+        detailsModalTitle.textContent = event.kolegij_naziv;
+        detailsModalBody.innerHTML = `
+            <p><strong>Vrijeme:</strong> ${event.vrijeme_od} - ${event.vrijeme_do}</p>
+            <p><strong>Dan:</strong> ${event.dan}</p>
+            <p><strong>Nastavnik:</strong> ${event.nastavnik_ime}</p>
+            <p><strong>Dvorana:</strong> ${event.dvorana_naziv}</p>
+            <p><strong>Grupa:</strong> ${event.grupa_naziv}</p>
+            <p><strong>Oblik nastave:</strong> ${event.oblik_nastave}</p>
+        `;
+        openModal(detailsModal);
+    }
 
-.time-label {
-    grid-column: 1 / 2;
-    text-align: right;
-    padding: 0 10px;
-    border-right: 1px solid #e0e0e0;
-    color: #7f8c8d;
-    font-size: 0.9em;
-    position: relative;
-    top: -10px;
-}
+    function populateAddFormSelects() {
+        const selects = {
+            'grupe': addEventForm.querySelector('#grupa'),
+            'nastavnici': addEventForm.querySelector('#nastavnik'),
+            'dvorane': addEventForm.querySelector('#dvorana'),
+        };
 
-.calendar-cell {
-    border-bottom: 1px solid #e0e0e0;
-    border-right: 1px solid #e0e0e0;
-    min-height: 60px;
-    position: relative;
-}
+        for (const key in selects) {
+            const selectEl = selects[key];
+            selectEl.innerHTML = '<option value="">Odaberite...</option>';
+            state.formData[key]?.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[Object.keys(item)[0]]; 
+                option.textContent = item[Object.keys(item)[1]];
+                selectEl.appendChild(option);
+            });
+        }
+        
+        const danSelect = addEventForm.querySelector('#dan');
+        danSelect.innerHTML = '';
+        days.forEach(dan => danSelect.add(new Option(dan, dan)));
+        
+        addEventForm.querySelector('#br_tjedna').value = state.week;
+    }
+    
+    // === Rukovanje Događajima (Event Handlers) ===
+    function handleSearch(event) {
+        const searchTerm = event.target.value.toLowerCase().trim();
+        const allEventDivs = grid.querySelectorAll('.event');
 
-.calendar-cell:last-child {
-    border-right: none;
-}
+        allEventDivs.forEach(eventDiv => {
+            const eventId = parseInt(eventDiv.dataset.eventId, 10);
+            const eventData = state.events.find(e => e.id_dogadaj === eventId);
 
-/* Event Styles */
-.event {
-    background-color: #ecf5ff;
-    border-left: 4px solid #3498db;
-    border-radius: 4px;
-    padding: 4px 8px;
-    font-size: 0.8em;
-    overflow: hidden;
-    position: absolute;
-    width: calc(100% - 10px);
-    left: 5px;
-    box-sizing: border-box;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    transition: all 0.2s ease;
-    cursor: pointer; /* Dodan cursor pointer da indicira klikabilnost */
-}
+            if (eventData) {
+                const eventText = [
+                    eventData.kolegij_naziv,
+                    eventData.nastavnik_ime,
+                    eventData.dvorana_naziv,
+                    eventData.grupa_naziv
+                ].join(' ').toLowerCase();
 
-.event:hover {
-    transform: translateY(-2px) scale(1.02);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-    z-index: 5;
-}
+                eventDiv.classList.toggle('hidden', !eventText.includes(searchTerm));
+            }
+        });
+    }
 
-/* NOVO: Klasa za skrivanje događaja kod pretrage */
-.event.hidden {
-    opacity: 0.1;
-    pointer-events: none; /* Onemogući klik na skrivene */
-}
+    async function handleAddFormSubmit(event) {
+        event.preventDefault();
+        const formData = new FormData(addEventForm);
+        const data = Object.fromEntries(formData.entries());
 
-.event strong {
-    display: block;
-    margin-bottom: 2px;
-    font-weight: 600;
-    color: #2c3e50;
-}
+        try {
+            const response = await fetch('/api/events', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
 
-.event .event-title {
-    display: block;
-    font-weight: 500;
-}
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.error || 'Greška na serveru.');
+            
+            closeModal(addEventModal);
+            fetchAndRenderEvents(state.year, state.week);
+            alert('Događaj je uspješno dodan!');
 
-.event .event-details {
-    display: block;
-    color: #7f8c8d;
-    font-size: 0.9em;
-    margin-top: 2px;
-}
+        } catch (error) {
+            console.error('Greška pri dodavanju događaja:', error);
+            alert(`Greška: ${error.message}`);
+        }
+    }
 
-/* Loading and Error States */
-.loading, .error {
-    grid-column: 1 / -1;
-    padding: 50px;
-    text-align: center;
-    font-size: 1.2em;
-    color: #7f8c8d;
-}
+    async function handleDeleteEvent() {
+        if (!state.selectedEventId) return;
 
-.error {
-    color: #e74c3c;
-}
+        if (confirm('Jeste li sigurni da želite obrisati ovaj događaj?')) {
+            try {
+                const response = await fetch(`/api/events/${state.selectedEventId}`, { method: 'DELETE' });
 
-/* ====================================================== */
-/* NOVO: Stilovi za modalni prozor                        */
-/* ====================================================== */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.6);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-    opacity: 0;
-    transition: opacity 0.3s ease;
-}
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.error || 'Greška na serveru.');
+                
+                closeModal(detailsModal);
+                
+                const eventToRemove = grid.querySelector(`.event[data-event-id="${state.selectedEventId}"]`);
+                if(eventToRemove) eventToRemove.remove();
+                
+                state.events = state.events.filter(e => e.id_dogadaj !== state.selectedEventId);
+                state.selectedEventId = null;
 
-.modal-overlay.visible {
-    opacity: 1;
-}
+                alert('Događaj je uspješno obrisan.');
 
-.modal-content {
-    background-color: #fff;
-    padding: 30px;
-    border-radius: 8px;
-    width: 90%;
-    max-width: 500px;
-    position: relative;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
-    transform: translateY(-20px);
-    transition: transform 0.3s ease;
-}
+            } catch (error) {
+                console.error('Greška pri brisanju događaja:', error);
+                alert(`Greška: ${error.message}`);
+            }
+        }
+    }
+    
+    // Centralizirano dodavanje Event Listenera
+    function addEventListeners() {
+        prevWeekBtn.addEventListener('click', () => {
+            const currentDate = getDateFromWeek(state.year, state.week);
+            currentDate.setDate(currentDate.getDate() - 7);
+            const [newYear, newWeek] = getWeekInfo(currentDate);
+            fetchAndRenderEvents(newYear, newWeek);
+        });
 
-.modal-overlay.visible .modal-content {
-    transform: translateY(0);
-}
+        nextWeekBtn.addEventListener('click', () => {
+            const currentDate = getDateFromWeek(state.year, state.week);
+            currentDate.setDate(currentDate.getDate() + 7);
+            const [newYear, newWeek] = getWeekInfo(currentDate);
+            fetchAndRenderEvents(newYear, newWeek);
+        });
+        
+        grid.addEventListener('click', e => {
+            const eventDiv = e.target.closest('.event');
+            if (eventDiv) showDetailsModal(parseInt(eventDiv.dataset.eventId, 10));
+        });
 
-.modal-close {
-    position: absolute;
-    top: 10px;
-    right: 15px;
-    background: none;
-    border: none;
-    font-size: 2em;
-    cursor: pointer;
-    color: #aaa;
-    line-height: 1;
-}
-.modal-close:hover {
-    color: #333;
-}
+        document.querySelectorAll('.modal-overlay').forEach(modal => {
+            modal.addEventListener('click', e => {
+                if (e.target === modal) closeModal(modal);
+            });
+        });
+        document.querySelectorAll('.modal-close').forEach(btn => {
+            btn.addEventListener('click', e => closeModal(btn.closest('.modal-overlay')));
+        });
 
-#modal-title {
-    margin-top: 0;
-    color: #2c3e50;
-    border-bottom: 1px solid #e0e0e0;
-    padding-bottom: 15px;
-    margin-bottom: 20px;
-}
-
-#modal-body p {
-    margin: 0 0 10px;
-    line-height: 1.6;
-    font-size: 1.1em;
-}
-
-#modal-body p strong {
-    display: inline-block;
-    width: 120px; /* Poravnanje oznaka */
-    color: #7f8c8d;
-}
+        addEventBtn.addEventListener('click', () => {
+            addEventForm.querySelector('#br_tjedna').value = state.week; // Postavi trenutni tjedan
+            openModal(addEventModal);
+        });
+        addEventForm.addEventListener('submit', handleAddFormSubmit);
+        cancelFormBtn.addEventListener('click', () => closeModal(addEventModal));
+        deleteEventBtn.addEventListener('click', handleDeleteEvent);
+        
+        searchInput.addEventListener('input', handleSearch);
+    }
+    
+    // Pokreni sve!
+    initializeCalendar();
+});

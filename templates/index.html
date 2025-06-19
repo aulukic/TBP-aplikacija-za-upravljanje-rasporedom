@@ -9,46 +9,92 @@
 <body>
     <header>
         <h1>Moj raspored</h1>
-        <!-- Navigacija za promjenu tjedna -->
         <nav class="week-navigation">
             <button id="prev-week-btn" class="nav-button">&laquo; Prethodni tjedan</button>
             <h2 id="current-week-display">Učitavanje...</h2>
             <button id="next-week-btn" class="nav-button">Sljedeći tjedan &raquo;</button>
         </nav>
-        
-        <!-- ====================================================== -->
-        <!-- NOVO: Traka za pretraživanje                          -->
-        <!-- ====================================================== -->
-        <div class="search-container">
-            <input type="search" id="search-input" placeholder="Pretraži raspored (npr. Baze podataka, Vjeran S...)">
+        <div class="header-actions">
+            <div class="search-container">
+                <input type="search" id="search-input" placeholder="Pretraži raspored...">
+            </div>
+            <button id="add-event-btn" class="nav-button primary-action-btn">+ Dodaj događaj</button>
         </div>
-
     </header>
 
     <main>
-        <!-- Kontejner za kalendar -->
         <div class="calendar-container">
             <div id="calendar-grid" class="calendar-grid">
-                <!-- Sadržaj kalendara se generira putem JS-a -->
+                <!-- Sadržaj kalendara se dinamički generira putem JS-a -->
                 <div class="loading">Učitavanje rasporeda...</div>
             </div>
         </div>
     </main>
     
-    <!-- ====================================================== -->
-    <!-- NOVO: HTML struktura za modalni prozor (pop-up)      -->
-    <!-- ====================================================== -->
-    <div id="event-modal" class="modal-overlay" style="display: none;">
+    <!-- Modal za detalje događaja -->
+    <div id="event-details-modal" class="modal-overlay" style="display: none;">
         <div class="modal-content">
             <button class="modal-close">&times;</button>
             <h3 id="modal-title"></h3>
             <div id="modal-body">
-                <!-- Detalji događaja će se dinamički ubaciti ovdje -->
+                <!-- Detalji događaja se dinamički ubacuju ovdje -->
+            </div>
+            <div class="modal-footer">
+                <button id="delete-event-btn" class="delete-button">Obriši događaj</button>
             </div>
         </div>
     </div>
 
-    <!-- Učitavanje ažurirane JavaScript datoteke -->
+    <!-- Modal s formom za dodavanje novog događaja -->
+    <div id="add-event-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button class="modal-close">&times;</button>
+            <h3>Dodaj novi događaj</h3>
+            <form id="add-event-form">
+                <div class="form-group">
+                    <label for="grupa">Grupa / Kolegij</label>
+                    <select id="grupa" name="id_grupa_fk" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="nastavnik">Nastavnik</label>
+                    <select id="nastavnik" name="id_nastavnik_fk" required></select>
+                </div>
+                <div class="form-group">
+                    <label for="dvorana">Dvorana</label>
+                    <select id="dvorana" name="id_dvorana_fk" required></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="dan">Dan</label>
+                        <select id="dan" name="dan" required></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="br_tjedna">Tjedan (broj)</label>
+                        <input type="number" id="br_tjedna" name="br_tjedna" required min="1" max="52">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="vrijeme_od">Vrijeme od</label>
+                        <input type="time" id="vrijeme_od" name="vrijeme_od" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="vrijeme_do">Vrijeme do</label>
+                        <input type="time" id="vrijeme_do" name="vrijeme_do" required>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="oblik_nastave">Oblik nastave</label>
+                    <input type="text" id="oblik_nastave" name="oblik_nastave" placeholder="Npr. Predavanje, Vježbe..." required>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="nav-button">Spremi događaj</button>
+                    <button type="button" class="cancel-button">Odustani</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
