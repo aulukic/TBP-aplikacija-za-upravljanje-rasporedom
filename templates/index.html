@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moj Raspored</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <header>
+        <h1>Moj raspored</h1>
+        </header>
+
+    <main>
+        <div class="calendar-grid">
+            <div class="time-header">Vrijeme</div>
+            <div class="day-header">PON</div>
+            <div class="day-header">UTO</div>
+            <div class="day-header">SRI</div>
+            <div class="day-header">ČET</div>
+            <div class="day-header">PET</div>
+            
+            </div>
+    </main>
+    
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>

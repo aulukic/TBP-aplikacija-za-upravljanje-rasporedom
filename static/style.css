@@ -1,0 +1,42 @@
+body { font-family: sans-serif; }
+
+.calendar-grid {
+    display: grid;
+    /* 1 stupac za vrijeme + 5 za dane */
+    grid-template-columns: 80px repeat(5, 1fr); 
+    border: 1px solid #ccc;
+}
+
+.time-header, .day-header {
+    background-color: #f2f2f2;
+    padding: 10px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px solid #ccc;
+}
+
+.time-label {
+    grid-column: 1 / 2; /* Smjesti u prvi stupac */
+    text-align: center;
+    padding: 10px 0;
+    border-right: 1px solid #ccc;
+    border-bottom: 1px solid #ccc;
+}
+
+.calendar-cell {
+    border-bottom: 1px solid #ccc;
+    border-right: 1px solid #ccc;
+    min-height: 50px;
+}
+
+.event {
+    background-color: #ffcccc; /* Ružičasta kao na slici */
+    border: 1px solid #ff9999;
+    border-radius: 5px;
+    padding: 5px;
+    margin: 2px;
+    font-size: 12px;
+    overflow: hidden;
+    position: absolute; /* Apsolutno pozicioniranje unutar grid-a */
+    width: calc(100% - 4px); /* Prilagodi širinu */
+}
