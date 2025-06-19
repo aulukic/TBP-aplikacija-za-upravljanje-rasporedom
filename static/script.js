@@ -1,172 +1,258 @@
-document.addEventListener('DOMContentLoaded', function() {
-    const grid = document.getElementById('calendar-grid');
-    const prevWeekBtn = document.getElementById('prev-week-btn');
-    const nextWeekBtn = document.getElementById('next-week-btn');
-    const currentWeekDisplay = document.getElementById('current-week-display');
+/* General Body Styles */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: #f4f7f9;
+    color: #333;
+    margin: 0;
+    padding: 20px;
+}
 
-    // Dani u tjednu za zaglavlja i mapiranje
-    const days = ['Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak'];
-    
-    // Stanje koje prati trenutno prikazanu godinu i tjedan
-    let state = {
-        year: null,
-        week: null,
-    };
+/* Header and Navigation */
+header {
+    text-align: center;
+    margin-bottom: 20px;
+}
 
-    /**
-     * Pomoćna funkcija za dobivanje ISO broja tjedna iz datuma.
-     * @param {Date} d Datum
-     * @returns {Array<number>} Niz koji sadrži [godinu, broj tjedna]
-     */
-    function getWeekInfo(d) {
-        const date = new Date(d.valueOf());
-        date.setHours(0, 0, 0, 0);
-        // Četvrtak u trenutnom tjednu određuje ISO tjedan
-        date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-        const week1 = new Date(date.getFullYear(), 0, 4);
-        const weekNumber = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
-        return [date.getFullYear(), weekNumber];
-    }
-    
-    /**
-     * Pomoćna funkcija za dobivanje datuma iz godine i broja tjedna.
-     * @param {number} y Godina
-     * @param {number} w Broj tjedna
-     * @returns {Date} Datum koji predstavlja ponedjeljak u tom tjednu
-     */
-    function getDateFromWeek(y, w) {
-        const simple = new Date(y, 0, 1 + (w - 1) * 7);
-        const dow = simple.getDay();
-        const isoWeekStart = simple;
-        if (dow <= 4)
-            isoWeekStart.setDate(simple.getDate() - simple.getDay() + 1);
-        else
-            isoWeekStart.setDate(simple.getDate() + 8 - simple.getDay());
-        return isoWeekStart;
-    }
+header h1 {
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
 
-    /**
-     * Inicijalizira kalendar dohvaćanjem podataka za trenutni tjedan.
-     */
-    function initializeCalendar() {
-        // Postavimo tjedan na fiksnu vrijednost za demonstraciju s podacima
-        // koje smo unijeli (tjedni 42 i 43). U produkciji bi se koristio trenutni datum.
-        // const [initialYear, initialWeek] = getWeekInfo(new Date());
-        const initialYear = 2024;
-        const initialWeek = 42;
-        fetchAndRenderEvents(initialYear, initialWeek);
-    }
+.week-navigation {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px; /* Dodan razmak ispod navigacije */
+}
 
-    /**
-     * Dohvaća događaje s backenda za zadanu godinu i tjedan te ih iscrtava.
-     * @param {number} year Godina
-     * @param {number} week Broj tjedna
-     */
-    function fetchAndRenderEvents(year, week) {
-        // Prikazujemo loading stanje
-        grid.innerHTML = '<div class="loading">Učitavanje rasporeda...</div>';
-        currentWeekDisplay.textContent = `Učitavanje...`;
+.week-navigation h2 {
+    margin: 0;
+    font-size: 1.2em;
+    color: #34495e;
+    min-width: 180px;
+    text-align: center;
+}
 
-        fetch(`/api/events?year=${year}&week=${week}`)
-            .then(response => {
-                if (!response.ok) throw new Error('Mrežni odgovor nije bio u redu.');
-                return response.json();
-            })
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                
-                state.year = data.year;
-                state.week = data.week;
-                renderCalendar(data.events);
-                updateWeekDisplay();
-            })
-            .catch(error => {
-                console.error('Greška pri dohvaćanju događaja:', error);
-                grid.innerHTML = `<div class="error">Greška: ${error.message}. Molimo pokušajte ponovno.</div>`;
-                currentWeekDisplay.textContent = 'Greška';
-            });
-    }
+.nav-button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.3s ease;
+}
 
-    /**
-     * Iscrtava cijelu mrežu kalendara, uključujući zaglavlja, sate i događaje.
-     * @param {Array} events Niz objekata koji predstavljaju događaje.
-     */
-    function renderCalendar(events) {
-        grid.innerHTML = '';
-        
-        // 1. Kreiraj zaglavlje za vrijeme i dane
-        grid.appendChild(Object.assign(document.createElement('div'), { className: 'time-header' }));
-        days.forEach(day => grid.appendChild(Object.assign(document.createElement('div'), { className: 'day-header', textContent: day })));
+.nav-button:hover {
+    background-color: #2980b9;
+}
 
-        // 2. Kreiraj redove za sate (od 8 do 20h) i ćelije
-        for (let hour = 8; hour < 21; hour++) {
-            grid.appendChild(Object.assign(document.createElement('div'), { className: 'time-label', textContent: `${hour}:00` }));
-            days.forEach(day => {
-                const cell = document.createElement('div');
-                cell.className = 'calendar-cell';
-                cell.dataset.day = day;
-                cell.dataset.hour = hour;
-                grid.appendChild(cell);
-            });
-        }
+/* ====================================================== */
+/* NOVO: Stilovi za traku za pretraživanje                */
+/* ====================================================== */
+.search-container {
+    max-width: 500px;
+    margin: 0 auto;
+}
 
-        // 3. Prikaži svaki događaj na gridu
-        events.forEach(event => {
-            const startHour = parseInt(event.vrijeme_od.split(':')[0]);
-            
-            // Pronađi odgovarajuću ćeliju za početak događaja
-            const targetCell = grid.querySelector(`[data-day="${event.dan}"][data-hour="${startHour}"]`);
+#search-input {
+    width: 100%;
+    padding: 12px 15px;
+    font-size: 1em;
+    border: 2px solid #dfe6e9;
+    border-radius: 8px;
+    box-sizing: border-box;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
 
-            if (targetCell) {
-                const eventDiv = document.createElement('div');
-                eventDiv.className = 'event';
-                
-                eventDiv.innerHTML = `
-                    <strong>${event.vrijeme_od} - ${event.vrijeme_do}</strong>
-                    <span class="event-title">${event.kolegij_naziv} (${event.oblik_nastave})</span>
-                    <small class="event-details">${event.dvorana_naziv} &bull; ${event.nastavnik_ime}</small>
-                `;
+#search-input:focus {
+    border-color: #3498db;
+    box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.2);
+    outline: none;
+}
 
-                const startMinutes = parseInt(event.vrijeme_od.split(':')[1]);
-                const endHour = parseInt(event.vrijeme_do.split(':')[0]);
-                const endMinutes = parseInt(event.vrijeme_do.split(':')[1]);
-                
-                const durationMinutes = (endHour * 60 + endMinutes) - (startHour * 60 + startMinutes);
-                const ROW_HEIGHT = 60; // Visina jednog sata u px
-                
-                const height = (durationMinutes / 60) * ROW_HEIGHT; 
-                const topOffset = (startMinutes / 60) * ROW_HEIGHT;
 
-                eventDiv.style.top = `${topOffset}px`;
-                eventDiv.style.height = `${height - 2}px`; // -2px za padding/border
-                
-                targetCell.appendChild(eventDiv);
-            }
-        });
-    }
+/* Calendar Styles */
+.calendar-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
 
-    /**
-     * Ažurira prikaz trenutnog tjedna i godine.
-     */
-    function updateWeekDisplay() {
-        currentWeekDisplay.textContent = `Tjedan ${state.week}, ${state.year}.`;
-    }
+.calendar-grid {
+    display: grid;
+    grid-template-columns: 80px repeat(5, 1fr); 
+    border-top: 1px solid #e0e0e0;
+}
 
-    // Event listeneri za navigacijske gumbe
-    prevWeekBtn.addEventListener('click', () => {
-        const currentDate = getDateFromWeek(state.year, state.week);
-        currentDate.setDate(currentDate.getDate() - 7);
-        const [newYear, newWeek] = getWeekInfo(currentDate);
-        fetchAndRenderEvents(newYear, newWeek);
-    });
+.time-header, .day-header {
+    background-color: #f8f9fa;
+    padding: 12px;
+    font-weight: bold;
+    text-align: center;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
 
-    nextWeekBtn.addEventListener('click', () => {
-        const currentDate = getDateFromWeek(state.year, state.week);
-        currentDate.setDate(currentDate.getDate() + 7);
-        const [newYear, newWeek] = getWeekInfo(currentDate);
-        fetchAndRenderEvents(newYear, newWeek);
-    });
+.time-label {
+    grid-column: 1 / 2;
+    text-align: right;
+    padding: 0 10px;
+    border-right: 1px solid #e0e0e0;
+    color: #7f8c8d;
+    font-size: 0.9em;
+    position: relative;
+    top: -10px;
+}
 
-    // Pokreni sve!
-    initializeCalendar();
-});
+.calendar-cell {
+    border-bottom: 1px solid #e0e0e0;
+    border-right: 1px solid #e0e0e0;
+    min-height: 60px;
+    position: relative;
+}
+
+.calendar-cell:last-child {
+    border-right: none;
+}
+
+/* Event Styles */
+.event {
+    background-color: #ecf5ff;
+    border-left: 4px solid #3498db;
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-size: 0.8em;
+    overflow: hidden;
+    position: absolute;
+    width: calc(100% - 10px);
+    left: 5px;
+    box-sizing: border-box;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    transition: all 0.2s ease;
+    cursor: pointer; /* Dodan cursor pointer da indicira klikabilnost */
+}
+
+.event:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    z-index: 5;
+}
+
+/* NOVO: Klasa za skrivanje događaja kod pretrage */
+.event.hidden {
+    opacity: 0.1;
+    pointer-events: none; /* Onemogući klik na skrivene */
+}
+
+.event strong {
+    display: block;
+    margin-bottom: 2px;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.event .event-title {
+    display: block;
+    font-weight: 500;
+}
+
+.event .event-details {
+    display: block;
+    color: #7f8c8d;
+    font-size: 0.9em;
+    margin-top: 2px;
+}
+
+/* Loading and Error States */
+.loading, .error {
+    grid-column: 1 / -1;
+    padding: 50px;
+    text-align: center;
+    font-size: 1.2em;
+    color: #7f8c8d;
+}
+
+.error {
+    color: #e74c3c;
+}
+
+/* ====================================================== */
+/* NOVO: Stilovi za modalni prozor                        */
+/* ====================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.visible {
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: #fff;
+    padding: 30px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+    transform: translateY(-20px);
+    transition: transform 0.3s ease;
+}
+
+.modal-overlay.visible .modal-content {
+    transform: translateY(0);
+}
+
+.modal-close {
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    background: none;
+    border: none;
+    font-size: 2em;
+    cursor: pointer;
+    color: #aaa;
+    line-height: 1;
+}
+.modal-close:hover {
+    color: #333;
+}
+
+#modal-title {
+    margin-top: 0;
+    color: #2c3e50;
+    border-bottom: 1px solid #e0e0e0;
+    padding-bottom: 15px;
+    margin-bottom: 20px;
+}
+
+#modal-body p {
+    margin: 0 0 10px;
+    line-height: 1.6;
+    font-size: 1.1em;
+}
+
+#modal-body p strong {
+    display: inline-block;
+    width: 120px; /* Poravnanje oznaka */
+    color: #7f8c8d;
+}

@@ -15,18 +15,39 @@
             <h2 id="current-week-display">Učitavanje...</h2>
             <button id="next-week-btn" class="nav-button">Sljedeći tjedan &raquo;</button>
         </nav>
+        
+        <!-- ====================================================== -->
+        <!-- NOVO: Traka za pretraživanje                          -->
+        <!-- ====================================================== -->
+        <div class="search-container">
+            <input type="search" id="search-input" placeholder="Pretraži raspored (npr. Baze podataka, Vjeran S...)">
+        </div>
+
     </header>
 
     <main>
         <!-- Kontejner za kalendar -->
         <div class="calendar-container">
             <div id="calendar-grid" class="calendar-grid">
-                <!-- Sadržaj kalendara će se dinamički generirati putem JS-a -->
+                <!-- Sadržaj kalendara se generira putem JS-a -->
                 <div class="loading">Učitavanje rasporeda...</div>
             </div>
         </div>
     </main>
     
+    <!-- ====================================================== -->
+    <!-- NOVO: HTML struktura za modalni prozor (pop-up)      -->
+    <!-- ====================================================== -->
+    <div id="event-modal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button class="modal-close">&times;</button>
+            <h3 id="modal-title"></h3>
+            <div id="modal-body">
+                <!-- Detalji događaja će se dinamički ubaciti ovdje -->
+            </div>
+        </div>
+    </div>
+
     <!-- Učitavanje ažurirane JavaScript datoteke -->
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
