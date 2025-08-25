@@ -87,10 +87,20 @@ document.addEventListener('DOMContentLoaded', function() {
         grid.innerHTML = '';
         grid.appendChild(Object.assign(document.createElement('div'), { className: 'time-header' }));
         days.forEach(day => grid.appendChild(Object.assign(document.createElement('div'), { className: 'day-header', textContent: day })));
+        
         for (let hour = 8; hour < 21; hour++) {
             grid.appendChild(Object.assign(document.createElement('div'), { className: 'time-label', textContent: `${hour}:00` }));
-            days.forEach(day => grid.appendChild(Object.assign(document.createElement('div'), { className: 'calendar-cell', dataset: { day, hour } })));
+            days.forEach(day => {
+                // --- ISPRAVAK JE OVDJE ---
+                const cell = document.createElement('div');
+                cell.className = 'calendar-cell';
+                cell.dataset.day = day;
+                cell.dataset.hour = hour;
+                grid.appendChild(cell);
+                // --- KRAJ ISPRAVKA ---
+            });
         }
+
         events.forEach(event => {
             const startHour = parseInt(event.vrijeme_od.split(':')[0]);
             const targetCell = grid.querySelector(`[data-day="${event.dan}"][data-hour="${startHour}"]`);
